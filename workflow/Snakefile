@@ -54,6 +54,7 @@ wildcard_constraints:
 
 # include the rules
 include: "rules/asm.smk"
+include: "rules/align.smk"
 
 
 # Helper function to check if manifest value contains valid data
@@ -119,35 +120,37 @@ for row in tbl.itertuples():
     extra_info = ", with ultra-long reads" if has_ultralong else ""
     print(f"Processing {sm} with assembly type {asm_type}{extra_info}")
 
-    # If references provided, produce oriented assemblies; otherwise produce unoriented
-    if REFS:
-        for ref in REFS.keys():
-            # Add reference-oriented assemblies (primary output)
-            results += expand(
-                rules.orient_assembly.output.fa,
-                sm=sm,
-                hap=["hap1", "hap2"],
-                asm_type=asm_type,
-                ref=ref,
-            )
-            # Add PAF alignments
-            results += expand(
-                rules.bam_to_paf.output.paf,
-                sm=sm,
-                hap=["hap1", "hap2"],
-                asm_type=asm_type,
-                ref=ref,
-            )
-    else:
-        # No reference - produce assemblies without orientation
+    # Add reference-oriented assemblies (using ORIENT_REF)
+    results += expand(
+        rules.orient_assembly.output.fa,
+        sm=sm,
+        hap=["hap1", "hap2"],
+        asm_type=asm_type,
+        ref=ORIENT_REF,
+    )
+    # Add merged diploid assembly
+    results += expand(
+        rules.merge_haplotype_fasta.output.fa,
+        sm=sm,
+        asm_type=asm_type,
+        ref=ORIENT_REF,
+    )
+    # Add PAF alignments for ALL references
+    for ref in REFS.keys():
         results += expand(
-            rules.finalize_assembly_no_ref.output.fa,
+            rules.bam_to_paf.output.paf,
             sm=sm,
             hap=["hap1", "hap2"],
             asm_type=asm_type,
+            ref=ref,
         )
-
-print(f"Results: {results}")
+        # Add merged diploid BAM
+        results += expand(
+            rules.merge_haplotype_bam.output.bam,
+            sm=sm,
+            asm_type=asm_type,
+            ref=ref,
+        )
 
 
 rule all:

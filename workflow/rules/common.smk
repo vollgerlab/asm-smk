@@ -158,13 +158,47 @@ def get_ultralong_used(wc):
     return "yes" if HAS_ULTRALONG[wc.sm] else "no"
 
 
+# Default reference URLs for download (ref_name -> url)
+DEFAULT_REFS = {
+    "T2T-CHM13v2.0": {
+        "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz",
+    },
+    "GRCh38": {
+        "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
+    },
+}
+
+
 def set_references():
+    """Set up references for alignment. Returns dict of ref_name -> path."""
     references = config.get("references", {})
     if not references:
-        t2t = "/mmfs1/gscratch/stergachislab/assemblies/T2Tv2.0_maskedY.fa"
-        if os.path.exists(t2t):
-            references["T2T-CHM13v2.0"] = t2t
-        hg38 = "/mmfs1/gscratch/stergachislab/assemblies/simple-names/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
-        if os.path.exists(hg38):
-            references["GRCh38"] = hg38
+        # Check for local paths first, otherwise use download paths
+        t2t_local = "/mmfs1/gscratch/stergachislab/assemblies/T2Tv2.0_maskedY.fa"
+        hg38_local = "/mmfs1/gscratch/stergachislab/assemblies/simple-names/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
+
+        if os.path.exists(t2t_local):
+            references["T2T-CHM13v2.0"] = t2t_local
+        else:
+            references["T2T-CHM13v2.0"] = "resources/references/T2T-CHM13v2.0.fa"
+
+        if os.path.exists(hg38_local):
+            references["GRCh38"] = hg38_local
+        else:
+            references["GRCh38"] = "resources/references/GRCh38.fa"
     return references
+
+
+def get_orient_ref():
+    """Get the single reference used for orientation (first reference, T2T preferred)."""
+    refs = set_references()
+    if refs:
+        # Prefer T2T for orientation
+        if "T2T-CHM13v2.0" in refs:
+            return "T2T-CHM13v2.0"
+        return list(refs.keys())[0]
+    return None
+
+
+# The single reference used for orientation
+ORIENT_REF = get_orient_ref()

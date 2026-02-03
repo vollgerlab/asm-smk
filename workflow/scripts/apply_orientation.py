@@ -60,10 +60,10 @@ def parse_fasta(fasta_file):
 
 
 def extract_contig_name(header):
-    """Extract the contig name from PanSN-spec header.
+    """Extract the raw contig name from FASTA header.
 
-    Header format: sample#hap#contig metadata...
-    Returns the full PanSN name (sample#hap#contig)
+    Header format: contig_name [optional metadata...]
+    Returns just the contig name (first field).
     """
     parts = header.split()
     return parts[0] if parts else header
@@ -76,10 +76,13 @@ def main():
     parser.add_argument("input_fa", help="Input FASTA file (can be gzipped)")
     parser.add_argument("orientation_tsv", help="Orientation TSV from analyze_orientation")
     parser.add_argument("output_fa", help="Output FASTA file (use /dev/stdout for pipe)")
+    parser.add_argument("--sample", required=True, help="Sample name for PanSN header")
+    parser.add_argument("--haplotype", required=True, help="Haplotype number (1 or 2)")
     parser.add_argument("--assembler", default=None, help="Assembler name (e.g., hifiasm)")
     parser.add_argument("--version", default=None, help="Assembler version")
     parser.add_argument("--phasing", default=None, help="Phasing method (trio, hic, none)")
     parser.add_argument("--ultralong", default=None, help="Whether ultralong reads used (yes/no)")
+    parser.add_argument("--orient-ref", default=None, help="Reference used for orientation")
 
     args = parser.parse_args()
 
@@ -87,7 +90,10 @@ def main():
 
     with open(args.output_fa, "w") as out:
         for header, seq in parse_fasta(args.input_fa):
-            contig_name = extract_contig_name(header)
+            raw_contig = extract_contig_name(header)
+
+            # Build PanSN-spec name: sample#haplotype#contig
+            pansn_name = f"{args.sample}#{args.haplotype}#{raw_contig}"
 
             # Build metadata string
             metadata_parts = []
@@ -99,10 +105,12 @@ def main():
                 metadata_parts.append(f"phasing={args.phasing}")
             if args.ultralong:
                 metadata_parts.append(f"ultralong={args.ultralong}")
+            if args.orient_ref:
+                metadata_parts.append(f"orient_ref={args.orient_ref}")
 
-            # Look up orientation info
-            if contig_name in orientations:
-                chrom, flip = orientations[contig_name]
+            # Look up orientation info using raw contig name
+            if raw_contig in orientations:
+                chrom, flip = orientations[raw_contig]
 
                 # Apply flip if needed
                 if flip:
@@ -117,9 +125,9 @@ def main():
                 metadata_parts.append("chrom=unplaced")
                 metadata_parts.append("flipped=no")
 
-            # Build new header
+            # Build new header with PanSN name and metadata
             metadata_str = " ".join(metadata_parts)
-            new_header = f"{contig_name} {metadata_str}" if metadata_str else contig_name
+            new_header = f"{pansn_name} {metadata_str}" if metadata_str else pansn_name
 
             # Write output
             out.write(f">{new_header}\n")

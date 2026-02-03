@@ -19,10 +19,17 @@ test_data = { cmd = [
 ] }
 test = { cmd = [
     "snakemake",
+    "--notemp",
     "--configfile",
     "test/test.yaml",
 ], depends-on = [
     "test_data",
+] }
+clean = { cmd = [
+    "snakemake",
+    "--delete-all-output",
+    "--configfile",
+    "test/test.yaml",
 ] }
 snakemake = { cmd = "cd $INIT_CWD && snakemake -s $PIXI_PROJECT_ROOT/workflow/Snakefile" }
 

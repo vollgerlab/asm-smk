@@ -14,12 +14,23 @@ tbl = pd.read_csv(
         "hifi": str,
         "paternal": str,
         "maternal": str,
+        "hic_r1": str,
+        "hic_r2": str,
+        "ultralong": str,
     },
 )
+# Add missing columns with NA defaults for backward compatibility
+for col in ["hic_r1", "hic_r2", "ultralong"]:
+    if col not in tbl.columns:
+        tbl[col] = pd.NA
+
 # the columns with reads can have multiple entries, so we need to split them
 tbl["hifi"] = tbl["hifi"].str.split(",")
 tbl["maternal"] = tbl["maternal"].str.split(",")
 tbl["paternal"] = tbl["paternal"].str.split(",")
+tbl["hic_r1"] = tbl["hic_r1"].str.split(",")
+tbl["hic_r2"] = tbl["hic_r2"].str.split(",")
+tbl["ultralong"] = tbl["ultralong"].str.split(",")
 # make them lists even if they are empty
 
 
@@ -34,9 +45,9 @@ REFS = set_references()
 wildcard_constraints:
     sm="|".join(tbl.index),
     hap="|".join(["hap1", "hap2"]),
-    asm_type="bp|dip",
+    asm_type="bp|dip|hic",
     parental="pat|mat",
-    read_type="hifi|mat|pat",
+    read_type="hifi|mat|pat|hic_r1|hic_r2|ultralong",
     idx=r"\d+",
     ref="|".join(REFS.keys()),
 
@@ -45,21 +56,68 @@ wildcard_constraints:
 include: "rules/asm.smk"
 
 
+# Helper function to check if manifest value contains valid data
+def is_valid_data(val):
+    """Check if a manifest value contains valid data (not NA/empty)."""
+    # Handle scalar NA values
+    try:
+        if pd.isna(val):
+            return False
+    except (ValueError, TypeError):
+        # pd.isna fails on arrays/lists, continue to list handling
+        pass
+    # Handle lists
+    if isinstance(val, (list, np.ndarray)):
+        if len(val) == 0:
+            return False
+        return all(v and str(v).upper() != "NA" for v in val)
+    # Handle scalar values
+    return val and str(val).upper() != "NA"
+
+
 # define the output files based on the assembly type
 HAS_PARENTAL = {}
+HAS_HIC = {}
+HAS_ULTRALONG = {}
 results = []
 for row in tbl.itertuples():
     sm = row.Index
-    # check if it is a list
-    if type(row.paternal) is list and len(row.paternal) > 0 and len(row.maternal) > 0:
+
+    has_parental = is_valid_data(row.paternal) and is_valid_data(row.maternal)
+    has_hic = is_valid_data(row.hic_r1) and is_valid_data(row.hic_r2)
+    has_ultralong = is_valid_data(row.ultralong)
+
+    # VALIDATION: Mutual exclusivity - trio and Hi-C phasing cannot be combined
+    if has_parental and has_hic:
+        raise ValueError(
+            f"Sample '{sm}': Cannot combine parental trio data (-1/-2) with Hi-C "
+            f"data (--h1/--h2). These phasing modes are mutually exclusive in hifiasm."
+        )
+
+    # VALIDATION: Hi-C requires both R1 and R2
+    hic_r1_valid = is_valid_data(row.hic_r1)
+    hic_r2_valid = is_valid_data(row.hic_r2)
+    if hic_r1_valid != hic_r2_valid:
+        raise ValueError(
+            f"Sample '{sm}': Hi-C requires paired-end reads. Provide both "
+            f"hic_r1 and hic_r2 columns, or neither."
+        )
+
+    # Store flags
+    HAS_PARENTAL[sm] = has_parental
+    HAS_HIC[sm] = has_hic
+    HAS_ULTRALONG[sm] = has_ultralong
+
+    # Determine assembly type
+    if has_parental:
         asm_type = "dip"
-        HAS_PARENTAL[sm] = True
-    elif pd.isna(row.paternal) or pd.isna(row.maternal):
-        asm_type = "bp"
-        HAS_PARENTAL[sm] = False
+    elif has_hic:
+        asm_type = "hic"
     else:
-        ValueError(f"Unknown assembly type for {sm}, shouldn't be here")
-    print(f"Processing {sm} with assembly type {asm_type}")
+        asm_type = "bp"
+
+    extra_info = ", with ultra-long reads" if has_ultralong else ""
+    print(f"Processing {sm} with assembly type {asm_type}{extra_info}")
     results += expand(
         rules.gfa_to_fa.output.fa,
         sm=sm,
@@ -71,7 +129,13 @@ for row in tbl.itertuples():
 if REFS:
     for ref in REFS.keys():
         for sm in tbl.index:
-            asm_type = "bp" if not HAS_PARENTAL[sm] else "dip"
+            # Determine asm_type consistently
+            if HAS_PARENTAL[sm]:
+                asm_type = "dip"
+            elif HAS_HIC[sm]:
+                asm_type = "hic"
+            else:
+                asm_type = "bp"
             results += expand(
                 rules.bam_to_paf.output.paf,
                 sm=sm,

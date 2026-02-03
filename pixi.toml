@@ -1,8 +1,8 @@
-[project]
+[workspace]
 authors = ["Mitchell R. Vollger <mrvollger@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
-description = "Add a short description here"
-name = "SmkTemplate"
+description = "Snakemake workflow for hifiasm genome assembly with Hi-C and ultra-long read support"
+name = "asm-smk"
 platforms = ["osx-64", "linux-64"]
 version = "0.0.1"
 

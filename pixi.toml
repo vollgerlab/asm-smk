@@ -29,7 +29,7 @@ snakemake = { cmd = "cd $INIT_CWD && snakemake -s $PIXI_PROJECT_ROOT/workflow/Sn
 
 [dependencies]
 conda = "*"
-snakemake = "==8.21"
+snakemake = "==9.15"
 snakefmt = "*"
 ruff = "*"
 taplo = "*"

@@ -94,6 +94,67 @@ sample  hifi                   hic_r1                  hic_r2                  u
 multi   /f1.fq.gz,/f2.fq.gz    /r1a.fq.gz,/r1b.fq.gz   /r2a.fq.gz,/r2b.fq.gz   /ul1.fq,/ul2.fq
 ```
 
+## Output
+
+Assemblies are output to `results/assemblies/` with the naming pattern:
+```
+{sample}.{mode}.{haplotype}.fa.gz
+```
+
+### PanSN-spec Headers
+
+Assembly FASTA headers follow the [PanSN-spec](https://github.com/pangenome/PanSN-spec) naming convention for compatibility with pangenome tools:
+
+```
+>{sample}#{haplotype}#{contig} assembler=hifiasm version=X.X.X phasing={method} ultralong={yes|no}
+```
+
+Example:
+```
+>HG002#1#ptg000001l assembler=hifiasm version=0.19.9 phasing=trio ultralong=yes
+>HG002#2#ptg000001l assembler=hifiasm version=0.19.9 phasing=trio ultralong=yes
+```
+
+Header metadata fields:
+- `phasing` - Phasing method: `trio`, `hic`, or `none`
+- `ultralong` - Whether ultra-long ONT reads were used: `yes` or `no`
+
+### Reference-Oriented Assemblies
+
+When a reference genome is provided, the workflow produces **reference-oriented assemblies**. These are placed in:
+```
+results/assemblies/{reference}/{sample}.{mode}.{haplotype}.fa.gz
+```
+
+The orientation pipeline uses a two-stage alignment approach:
+1. **Fast alignment with mashmap** - Quick whole-genome alignment to determine contig orientation
+2. **Full alignment with minimap2** - Detailed alignment on the oriented assembly
+
+Reference-oriented assemblies have:
+1. **Contigs flipped** to match reference strand orientation (reverse complemented if majority of aligned bases are on the reverse strand)
+2. **Additional header annotations**:
+   - `chrom` - Primary chromosome the contig aligns to (e.g., `chr1`)
+   - `flipped` - Whether the contig was reverse complemented (`yes` or `no`)
+
+Example oriented header:
+```
+>HG002#1#ptg000001l assembler=hifiasm version=0.25.0 phasing=trio ultralong=yes chrom=chr1 flipped=no
+>HG002#1#ptg000015l assembler=hifiasm version=0.25.0 phasing=trio ultralong=yes chrom=chr7 flipped=yes
+```
+
+To provide a reference, add it to your config file:
+```yaml
+manifest: samples.tbl
+references:
+  T2T-CHM13v2.0: /path/to/chm13v2.fa
+  GRCh38: /path/to/grch38.fa
+```
+
+When no reference is provided, assemblies are output to:
+```
+results/assemblies/{sample}.{mode}.{haplotype}.fa.gz
+```
+
 ### Submitting to the Hyak HPC via Slurm
 
 ```bash

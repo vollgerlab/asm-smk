@@ -91,29 +91,151 @@ rule hifiasm:
 
 
 rule gfa_to_fa:
+    """Convert GFA to FASTA with minimal PanSN-spec headers (no metadata yet)."""
     input:
         gfa="results/{sm}/{sm}.{asm_type}.{hap}.p_ctg.gfa",
     output:
-        # results/asm/test.bp.hap1.fa.gz
+        fa=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz"),
+        fai=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz.fai"),
+    threads: 4
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60 * 4,
+    params:
+        hap_num=get_haplotype_number,
+    conda:
+        "../envs/env.yml"
+    shell:
+        """
+        # Convert GFA to FASTA with basic PanSN-spec headers
+        # Format: sample#haplotype#contig (metadata added after orientation)
+        gfatools gfa2fa {input.gfa} \
+            | awk -v sample="{wildcards.sm}" \
+                  -v hap="{params.hap_num}" \
+                  'BEGIN {{{{OFS=""}}}}
+                   /^>/ {{{{
+                       contig = substr($1, 2)
+                       print ">" sample "#" hap "#" contig
+                       next
+                   }}}}
+                   {{{{print}}}}' \
+            | bgzip -@ {threads} > {output.fa}
+        samtools faidx {output.fa}
+        """
+
+
+rule finalize_assembly_no_ref:
+    """Finalize assembly with metadata when no reference is provided."""
+    input:
+        fa=rules.gfa_to_fa.output.fa,
+    output:
         fa="results/assemblies/{sm}.{asm_type}.{hap}.fa.gz",
         fai="results/assemblies/{sm}.{asm_type}.{hap}.fa.gz.fai",
     threads: 4
     resources:
         mem_mb=8 * 1024,
-        runtime=60 * 4,
+        runtime=60,
+    params:
+        hap_num=get_haplotype_number,
+        phasing=get_phasing_description,
+        ultralong=get_ultralong_used,
+        hifiasm_version=HIFIASM_VERSION,
     conda:
         "../envs/env.yml"
     shell:
         """
-        gfatools gfa2fa {input.gfa} | bgzip -@ {threads} > {output.fa}
+        # Add metadata to headers without orientation info
+        zcat {input.fa} \
+            | awk -v version="{params.hifiasm_version}" \
+                  -v phasing="{params.phasing}" \
+                  -v ultralong="{params.ultralong}" \
+                  '/^>/ {{{{
+                       # Add metadata to existing PanSN header
+                       print $0 " assembler=hifiasm version=" version " phasing=" phasing " ultralong=" ultralong
+                       next
+                   }}}}
+                   {{{{print}}}}' \
+            | bgzip -@ {threads} > {output.fa}
         samtools faidx {output.fa}
         """
 
 
-# align the assemblies to a reference using minimap2 if a reference is provided in the config
-rule align:
+# Quick alignment with mashmap for orientation detection
+rule quick_align:
+    """Fast whole-genome alignment using mashmap for orientation detection."""
     input:
-        fa="results/assemblies/{sm}.{asm_type}.{hap}.fa.gz",
+        fa=rules.gfa_to_fa.output.fa,
+        ref=get_ref,
+    output:
+        paf=temp("temp/{sm}/{ref}/{sm}.{asm_type}.{hap}.mashmap.paf"),
+    threads: 8
+    resources:
+        mem_mb=16 * 1024,
+        runtime=60,
+    conda:
+        "../envs/env.yml"
+    shell:
+        """
+        mashmap -r {input.ref} -q {input.fa} \
+            -t {threads} --pi 95 -s 50000 \
+            -o {output.paf}
+        """
+
+
+rule analyze_orientation:
+    """Analyze mashmap PAF to determine contig orientation relative to reference."""
+    input:
+        paf=rules.quick_align.output.paf,
+    output:
+        tsv=temp("temp/{sm}/{ref}/{sm}.{asm_type}.{hap}.orientation.tsv"),
+    threads: 1
+    resources:
+        mem_mb=4 * 1024,
+        runtime=60,
+    conda:
+        "../envs/env.yml"
+    shell:
+        """
+        python {workflow.basedir}/scripts/orient_contigs.py {input.paf} {output.tsv}
+        """
+
+
+rule orient_assembly:
+    """Orient contigs, add all header metadata, and flip sequences as needed."""
+    input:
+        fa=rules.gfa_to_fa.output.fa,
+        orientation=rules.analyze_orientation.output.tsv,
+    output:
+        fa="results/assemblies/{ref}/{sm}.{asm_type}.{hap}.fa.gz",
+        fai="results/assemblies/{ref}/{sm}.{asm_type}.{hap}.fa.gz.fai",
+    threads: 4
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60 * 2,
+    params:
+        phasing=get_phasing_description,
+        ultralong=get_ultralong_used,
+        hifiasm_version=HIFIASM_VERSION,
+    conda:
+        "../envs/env.yml"
+    shell:
+        """
+        python {workflow.basedir}/scripts/apply_orientation.py \
+            {input.fa} {input.orientation} /dev/stdout \
+            --assembler hifiasm \
+            --version "{params.hifiasm_version}" \
+            --phasing {params.phasing} \
+            --ultralong {params.ultralong} \
+            | bgzip -@ {threads} > {output.fa}
+        samtools faidx {output.fa}
+        """
+
+
+# Full alignment with minimap2 on oriented assemblies
+rule align:
+    """Align oriented assembly to reference using minimap2."""
+    input:
+        fa=rules.orient_assembly.output.fa,
         ref=get_ref,
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.{hap}.bam",
@@ -137,6 +259,7 @@ rule align:
 
 
 rule bam_to_paf:
+    """Convert BAM alignment to PAF format."""
     input:
         bam=rules.align.output.bam,
     output:

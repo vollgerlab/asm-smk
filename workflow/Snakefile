@@ -2,7 +2,7 @@ from snakemake.utils import min_version
 import pandas as pd
 import numpy as np
 
-min_version("8.0")
+min_version("9.0")
 
 # read in the manifest of samples
 tbl = pd.read_csv(
@@ -118,24 +118,19 @@ for row in tbl.itertuples():
 
     extra_info = ", with ultra-long reads" if has_ultralong else ""
     print(f"Processing {sm} with assembly type {asm_type}{extra_info}")
-    results += expand(
-        rules.gfa_to_fa.output.fa,
-        sm=sm,
-        hap=["hap1", "hap2"],
-        asm_type=asm_type,
-    )
 
-
-if REFS:
-    for ref in REFS.keys():
-        for sm in tbl.index:
-            # Determine asm_type consistently
-            if HAS_PARENTAL[sm]:
-                asm_type = "dip"
-            elif HAS_HIC[sm]:
-                asm_type = "hic"
-            else:
-                asm_type = "bp"
+    # If references provided, produce oriented assemblies; otherwise produce unoriented
+    if REFS:
+        for ref in REFS.keys():
+            # Add reference-oriented assemblies (primary output)
+            results += expand(
+                rules.orient_assembly.output.fa,
+                sm=sm,
+                hap=["hap1", "hap2"],
+                asm_type=asm_type,
+                ref=ref,
+            )
+            # Add PAF alignments
             results += expand(
                 rules.bam_to_paf.output.paf,
                 sm=sm,
@@ -143,6 +138,14 @@ if REFS:
                 asm_type=asm_type,
                 ref=ref,
             )
+    else:
+        # No reference - produce assemblies without orientation
+        results += expand(
+            rules.finalize_assembly_no_ref.output.fa,
+            sm=sm,
+            hap=["hap1", "hap2"],
+            asm_type=asm_type,
+        )
 
 print(f"Results: {results}")
 

@@ -1,3 +1,20 @@
+# Parse tool versions from env.yml
+import yaml
+import re
+
+with open(workflow.source_path("../envs/env.yml")) as f:
+    _env_config = yaml.safe_load(f)
+    _versions = {}
+    for dep in _env_config.get("dependencies", []):
+        if isinstance(dep, str):
+            # Handle version specifiers: ==, >=, <=, >, <, =
+            match = re.match(r"^([a-zA-Z0-9_-]+)(?:[><=]+)(.+)$", dep)
+            if match:
+                name, version = match.groups()
+                _versions[name] = version
+    HIFIASM_VERSION = _versions.get("hifiasm", "unknown")
+
+
 def get_mem_mb(wildcards, attempt):
     if attempt < 3:
         return attempt * 1024 * 8
@@ -119,6 +136,26 @@ def extra_asm_options(wc):
 
 def get_ref(wc):
     return REFS[wc.ref]
+
+
+def get_haplotype_number(wc):
+    """Convert hap1/hap2 to 1/2 for PanSN-spec naming."""
+    return "1" if wc.hap == "hap1" else "2"
+
+
+def get_phasing_description(wc):
+    """Get human-readable phasing description for header comments."""
+    if wc.asm_type == "dip":
+        return "trio"
+    elif wc.asm_type == "hic":
+        return "hic"
+    else:
+        return "none"
+
+
+def get_ultralong_used(wc):
+    """Return whether ultra-long ONT reads were used."""
+    return "yes" if HAS_ULTRALONG[wc.sm] else "no"
 
 
 def set_references():

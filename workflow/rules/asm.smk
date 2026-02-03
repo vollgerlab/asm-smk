@@ -1,4 +1,3 @@
-
 def get_ref_url(wc):
     """Get URL for reference download."""
     return DEFAULT_REFS.get(wc.ref_name, {}).get("url", "")
@@ -19,7 +18,6 @@ rule download_reference:
         "../envs/env.yml"
     shell:
         """
-        mkdir -p resources/references
         curl -L {params.url} | gunzip -c > {output.fa}
         samtools faidx {output.fa}
         """
@@ -98,7 +96,8 @@ rule hifiasm:
         runtime=60 * 24,
     params:
         extra=extra_asm_options,
-        prefix=lambda wc, output: output.hap1.replace(".hap1.p_ctg.gfa", ""),
+        # hifiasm adds asm_type (.bp/.dip/.hic) to prefix automatically
+        prefix=lambda wc, output: output.hap1.replace(f".{wc.asm_type}.hap1.p_ctg.gfa", ""),
     conda:
         "../envs/env.yml"
     shell:

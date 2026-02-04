@@ -1,4 +1,3 @@
-
 # Variant calling from assembly alignments
 
 

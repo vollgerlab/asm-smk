@@ -121,14 +121,20 @@ def extra_asm_options(wc):
         mat_yak = rules.yak.output.yak.format(parental="mat", asm_type="dip", sm=wc.sm)
         options.append(f"-1 {pat_yak} -2 {mat_yak}")
     elif wc.asm_type == "hic":
-        hic_r1 = rules.merge_input_reads.output.reads.format(sm=wc.sm, read_type="hic_r1")
-        hic_r2 = rules.merge_input_reads.output.reads.format(sm=wc.sm, read_type="hic_r2")
+        hic_r1 = rules.merge_input_reads.output.reads.format(
+            sm=wc.sm, read_type="hic_r1"
+        )
+        hic_r2 = rules.merge_input_reads.output.reads.format(
+            sm=wc.sm, read_type="hic_r2"
+        )
         options.append(f"--h1 {hic_r1} --h2 {hic_r2}")
     # bp type has no phasing options
 
     # Ultra-long reads (can combine with any phasing mode)
     if HAS_ULTRALONG[wc.sm]:
-        ul_reads = rules.merge_input_reads.output.reads.format(sm=wc.sm, read_type="ultralong")
+        ul_reads = rules.merge_input_reads.output.reads.format(
+            sm=wc.sm, read_type="ultralong"
+        )
         options.append(f"--ul {ul_reads}")
 
     return " ".join(options)

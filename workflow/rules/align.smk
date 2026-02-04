@@ -1,9 +1,10 @@
-
 # Full alignment with minimap2 on oriented assemblies
 rule align:
     """Align oriented assembly to reference using minimap2."""
     input:
-        fa=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap=wc.hap),
+        fa=lambda wc: rules.orient_assembly.output.fa.format(
+            sm=wc.sm, asm_type=wc.asm_type, hap=wc.hap
+        ),
         ref=get_ref,
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.{hap}.bam",
@@ -51,8 +52,12 @@ rule bam_to_paf:
 rule merge_haplotype_bam:
     """Merge hap1 and hap2 BAM files into a single diploid alignment."""
     input:
-        hap1=lambda wc: rules.align.output.bam.format(ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap1"),
-        hap2=lambda wc: rules.align.output.bam.format(ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap2"),
+        hap1=lambda wc: rules.align.output.bam.format(
+            ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap1"
+        ),
+        hap2=lambda wc: rules.align.output.bam.format(
+            ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap2"
+        ),
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.dip.bam",
         index="results/alignments/{ref}/{sm}.{asm_type}.dip.bam.csi",

@@ -1,14 +1,9 @@
 
-def get_oriented_assembly(wc):
-    """Get path to oriented assembly using the single ORIENT_REF."""
-    return f"results/assemblies/{ORIENT_REF}/{wc.sm}.{wc.asm_type}.{wc.hap}.fa.gz"
-
-
 # Full alignment with minimap2 on oriented assemblies
 rule align:
     """Align oriented assembly to reference using minimap2."""
     input:
-        fa=get_oriented_assembly,
+        fa=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap=wc.hap),
         ref=get_ref,
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.{hap}.bam",
@@ -56,11 +51,11 @@ rule bam_to_paf:
 rule merge_haplotype_fasta:
     """Merge hap1 and hap2 FASTA files into a single diploid assembly."""
     input:
-        hap1="results/assemblies/{ref}/{sm}.{asm_type}.hap1.fa.gz",
-        hap2="results/assemblies/{ref}/{sm}.{asm_type}.hap2.fa.gz",
+        hap1=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap="hap1"),
+        hap2=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap="hap2"),
     output:
-        fa="results/assemblies/{ref}/{sm}.{asm_type}.dip.fa.gz",
-        fai="results/assemblies/{ref}/{sm}.{asm_type}.dip.fa.gz.fai",
+        fa="results/assemblies/{sm}.{asm_type}.dip.fa.gz",
+        fai="results/assemblies/{sm}.{asm_type}.dip.fa.gz.fai",
     threads: 4
     resources:
         mem_mb=8 * 1024,
@@ -77,8 +72,8 @@ rule merge_haplotype_fasta:
 rule merge_haplotype_bam:
     """Merge hap1 and hap2 BAM files into a single diploid alignment."""
     input:
-        hap1="results/alignments/{ref}/{sm}.{asm_type}.hap1.bam",
-        hap2="results/alignments/{ref}/{sm}.{asm_type}.hap2.bam",
+        hap1=lambda wc: rules.align.output.bam.format(ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap1"),
+        hap2=lambda wc: rules.align.output.bam.format(ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap2"),
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.dip.bam",
         index="results/alignments/{ref}/{sm}.{asm_type}.dip.bam.csi",

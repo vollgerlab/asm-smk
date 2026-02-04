@@ -120,20 +120,18 @@ for row in tbl.itertuples():
     extra_info = ", with ultra-long reads" if has_ultralong else ""
     print(f"Processing {sm} with assembly type {asm_type}{extra_info}")
 
-    # Add reference-oriented assemblies (using ORIENT_REF)
+    # Add oriented assemblies (single orientation to primary reference)
     results += expand(
         rules.orient_assembly.output.fa,
         sm=sm,
         hap=["hap1", "hap2"],
         asm_type=asm_type,
-        ref=ORIENT_REF,
     )
     # Add merged diploid assembly
     results += expand(
         rules.merge_haplotype_fasta.output.fa,
         sm=sm,
         asm_type=asm_type,
-        ref=ORIENT_REF,
     )
     # Add PAF alignments for ALL references
     for ref in REFS.keys():

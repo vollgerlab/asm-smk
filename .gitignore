@@ -8,3 +8,6 @@ results/**
 temp/**
 logs/**
 test/test.fa.gz
+test/*fq.gz
+test/*fa.gz
+

@@ -86,8 +86,8 @@ rule hifiasm:
     input:
         unpack(asm_inputs),
     output:
-        hap1="results/{sm}/{sm}.{asm_type}.hap1.p_ctg.gfa",
-        hap2="results/{sm}/{sm}.{asm_type}.hap2.p_ctg.gfa",
+        hap1=temp("temp/{sm}/{sm}.{asm_type}.hap1.p_ctg.gfa"),
+        hap2=temp("temp/{sm}/{sm}.{asm_type}.hap2.p_ctg.gfa"),
     shadow:
         "minimal"
     threads: config.get("asm-threads", 64)
@@ -97,7 +97,9 @@ rule hifiasm:
     params:
         extra=extra_asm_options,
         # hifiasm adds asm_type (.bp/.dip/.hic) to prefix automatically
-        prefix=lambda wc, output: output.hap1.replace(f".{wc.asm_type}.hap1.p_ctg.gfa", ""),
+        prefix=lambda wc, output: output.hap1.replace(
+            f".{wc.asm_type}.hap1.p_ctg.gfa", ""
+        ),
     conda:
         "../envs/env.yml"
     shell:
@@ -109,7 +111,7 @@ rule hifiasm:
 rule gfa_to_fa:
     """Convert GFA to FASTA (raw contig names, headers added in orient_assembly)."""
     input:
-        gfa="results/{sm}/{sm}.{asm_type}.{hap}.p_ctg.gfa",
+        gfa="temp/{sm}/{sm}.{asm_type}.{hap}.p_ctg.gfa",
     output:
         fa=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz"),
         fai=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz.fai"),
@@ -169,10 +171,10 @@ rule orient_assembly:
     """Orient contigs, add all header metadata, and flip sequences as needed."""
     input:
         fa=rules.gfa_to_fa.output.fa,
-        orientation=rules.analyze_orientation.output.tsv,
+        orientation=lambda wc: f"temp/{wc.sm}/{ORIENT_REF}/{wc.sm}.{wc.asm_type}.{wc.hap}.orientation.tsv",
     output:
-        fa="results/assemblies/{ref}/{sm}.{asm_type}.{hap}.fa.gz",
-        fai="results/assemblies/{ref}/{sm}.{asm_type}.{hap}.fa.gz.fai",
+        fa="results/assemblies/{sm}.{asm_type}.{hap}.fa.gz",
+        fai="results/assemblies/{sm}.{asm_type}.{hap}.fa.gz.fai",
     threads: 4
     resources:
         mem_mb=8 * 1024,
@@ -182,6 +184,7 @@ rule orient_assembly:
         phasing=get_phasing_description,
         ultralong=get_ultralong_used,
         hifiasm_version=HIFIASM_VERSION,
+        orient_ref=ORIENT_REF,
     conda:
         "../envs/env.yml"
     shell:
@@ -194,7 +197,7 @@ rule orient_assembly:
             --version "{params.hifiasm_version}" \
             --phasing {params.phasing} \
             --ultralong {params.ultralong} \
-            --orient-ref {wildcards.ref} \
+            --orient-ref {params.orient_ref} \
             | bgzip -@ {threads} > {output.fa}
         samtools faidx {output.fa}
         """

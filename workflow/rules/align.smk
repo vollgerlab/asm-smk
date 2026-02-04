@@ -12,20 +12,20 @@ rule align:
     resources:
         mem_mb=64 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/align/{ref}/{sm}.{asm_type}.{hap}.log",
     conda:
         "../envs/env.yml"
     params:
         mm2_opts=config.get("mm2_opts", "-x asm20 --secondary=no -s 25000 -K 8G"),
         rg=lambda wc: f"@RG\\tID:{wc.sm}\\tSM:{wc.sm}",
     shell:
-        """
-        minimap2 --MD --cs --eqx -a {params.mm2_opts} \
-            -R '{params.rg}' \
-            {input.ref} {input.fa} \
-            | samtools view -F 4 -u -@ {threads} \
-            | samtools sort -m 2G -@ {threads} \
-                --write-index -o {output.bam}
-        """
+        "(minimap2 --MD --cs --eqx -a {params.mm2_opts} "
+        "    -R '{params.rg}' "
+        "    {input.ref} {input.fa} "
+        "    | samtools view -F 4 -u -@ {threads} "
+        "    | samtools sort -m 2G -@ {threads} "
+        "        --write-index -o {output.bam}) &> {log}"
 
 
 rule bam_to_paf:
@@ -38,14 +38,14 @@ rule bam_to_paf:
     resources:
         mem_mb=16 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/bam_to_paf/{ref}/{sm}.{asm_type}.{hap}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        samtools view -h -@ {threads} {input.bam} \
-            | paftools.js sam2paf - \
-            | bgzip -@ {threads} > {output.paf}
-        """
+        "(samtools view -h -@ {threads} {input.bam} "
+        "    | paftools.js sam2paf - "
+        "    | bgzip -@ {threads} > {output.paf}) &> {log}"
 
 
 rule merge_haplotype_bam:
@@ -60,9 +60,10 @@ rule merge_haplotype_bam:
     resources:
         mem_mb=16 * 1024,
         runtime=60 * 2,
+    log:
+        "results/logs/merge_haplotype_bam/{ref}/{sm}.{asm_type}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        samtools merge -@ {threads} --write-index -o {output.bam} {input.hap1} {input.hap2}
-        """
+        "samtools merge -@ {threads} --write-index -o {output.bam} "
+        "{input.hap1} {input.hap2} &> {log}"

@@ -1,4 +1,4 @@
 sample hifi paternal maternal hic_r1 hic_r2 ultralong
-test test/test.fa.gz NA NA NA NA NA
-test_full test/test.fa.gz,test/test.fa.gz test/test.fa.gz test/test.fa.gz,test/test.fa.gz NA NA test/test.fa.gz
-test_hic test/test.fa.gz NA NA test/hic_r1.fq.gz test/hic_r2.fq.gz NA
+test test/test.fa NA NA NA NA NA
+test_full test/test.fa,test/test.fa test/test.fa test/test.fa,test/test.fa NA NA test/test.fa
+test_hic test/test.fa NA NA test/hic_r1.fq.gz test/hic_r2.fq.gz NA

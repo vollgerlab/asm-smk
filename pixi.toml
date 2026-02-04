@@ -8,8 +8,8 @@ version = "0.0.1"
 
 [tasks]
 fmt = "ruff format . && taplo format pixi.toml && snakefmt workflow/"
-test_ref = { cmd = "test -f test/test.fa.gz || (wget -O - https://github.com/chhylp123/hifiasm/releases/download/v0.7/chr11-2M.fa.gz | gunzip | bgzip > test/test.fa.gz)" }
-test_hic = { cmd = "test -f test/hic_r1.fq.gz || (bgzip -d -k test/test.fa.gz && wgsim -1 150 -2 150 -N 50000 -e 0.01 -S 42 test/test.fa test/hic_r1.fq test/hic_r2.fq && gzip test/hic_r1.fq test/hic_r2.fq && rm test/test.fa)", depends-on = ["test_ref"] }
+test_ref = { cmd = "test -f test/test.fa || (wget -O - https://github.com/chhylp123/hifiasm/releases/download/v0.7/chr11-2M.fa.gz | gunzip > test/test.fa && samtools faidx test/test.fa)" }
+test_hic = { cmd = "test -f test/hic_r1.fq.gz || (wgsim -1 150 -2 150 -N 50000 -e 0.01 -S 42 test/test.fa test/hic_r1.fq test/hic_r2.fq && gzip test/hic_r1.fq test/hic_r2.fq)", depends-on = ["test_ref"] }
 test_data = { depends-on = ["test_ref", "test_hic"] }
 test = { cmd = [
     "snakemake",

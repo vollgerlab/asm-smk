@@ -7,7 +7,7 @@
 results/**
 temp/**
 logs/**
-test/test.fa.gz
+test/test.fa
+test/test.fa.fai
 test/*fq.gz
-test/*fa.gz
 

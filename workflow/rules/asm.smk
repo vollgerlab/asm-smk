@@ -14,13 +14,37 @@ rule download_reference:
     resources:
         mem_mb=8 * 1024,
         runtime=60 * 2,
+    log:
+        "results/logs/download_reference/{ref_name}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        curl -L {params.url} | gunzip -c > {output.fa}
-        samtools faidx {output.fa}
-        """
+        "(curl -L {params.url} | gunzip -c > {output.fa} && "
+        "samtools faidx {output.fa}) &> {log}"
+
+
+rule prepare_uncompressed_ref:
+    """Prepare uncompressed reference for tools that cannot read gzipped FASTA (e.g., svim-asm)."""
+    input:
+        ref=get_ref,
+    output:
+        fa=temp("temp/references/{ref}.fa"),
+        fai=temp("temp/references/{ref}.fa.fai"),
+    threads: 4
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60,
+    log:
+        "results/logs/prepare_uncompressed_ref/{ref}.log",
+    conda:
+        "../envs/env.yml"
+    shell:
+        "(if [[ {input.ref} == *.gz ]]; then "
+        "    gunzip -c {input.ref} > {output.fa}; "
+        "else "
+        "    ln -s $(realpath {input.ref}) {output.fa}; "
+        "fi && "
+        "samtools faidx {output.fa}) &> {log}"
 
 
 rule input_reads:
@@ -32,19 +56,18 @@ rule input_reads:
     resources:
         mem_mb=8 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/input_reads/{sm}.{read_type}.{idx}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        # make a fasta if bam cram or sam
-        if [[ {input.reads} =~ .*\\.(fa|fa.gz|fq|fq.gz|fasta|fasta.gz|fastq|fastq.gz) ]]; then
-            echo "linking {input.reads} to {output.reads}"
-            ln -s $(realpath {input.reads}) {output.reads}
-        elif [[ {input.reads} =~ .*\\.(bam|sam|cram) ]]; then
-            echo "converting {input.reads} to {output.reads}"
-            samtools fasta -@ {threads} {input.reads} | bgzip -@ {threads} > {output.reads}
-        fi
-        """
+        "(if [[ {input.reads} =~ .*\\.(fa|fa.gz|fq|fq.gz|fasta|fasta.gz|fastq|fastq.gz) ]]; then "
+        "    echo 'linking {input.reads} to {output.reads}' && "
+        "    ln -s $(realpath {input.reads}) {output.reads}; "
+        "elif [[ {input.reads} =~ .*\\.(bam|sam|cram) ]]; then "
+        "    echo 'converting {input.reads} to {output.reads}' && "
+        "    samtools fasta -@ {threads} {input.reads} | bgzip -@ {threads} > {output.reads}; "
+        "fi) &> {log}"
 
 
 rule merge_input_reads:
@@ -56,12 +79,12 @@ rule merge_input_reads:
     resources:
         mem_mb=8 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/merge_input_reads/{sm}.{read_type}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        cat {input} > {output.reads}
-        """
+        "cat {input} > {output.reads} 2> {log}"
 
 
 rule yak:
@@ -73,12 +96,13 @@ rule yak:
     resources:
         mem_mb=100 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/yak/{sm}.{parental}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        yak count -k31 -b37 -t {threads} -o {output.yak} {input.parental_reads} {input.parental_reads}
-        """
+        "yak count -k31 -b37 -t {threads} -o {output.yak} "
+        "{input.parental_reads} {input.parental_reads} &> {log}"
 
 
 rule hifiasm:
@@ -94,6 +118,8 @@ rule hifiasm:
     resources:
         mem_mb=asm_mem_mb,
         runtime=60 * 24,
+    log:
+        "results/logs/hifiasm/{sm}.{asm_type}.log",
     params:
         extra=extra_asm_options,
         # hifiasm adds asm_type (.bp/.dip/.hic) to prefix automatically
@@ -103,9 +129,7 @@ rule hifiasm:
     conda:
         "../envs/env.yml"
     shell:
-        """
-        hifiasm -o {params.prefix} -t {threads} {input.reads} {params.extra}
-        """
+        "hifiasm -o {params.prefix} -t {threads} {input.reads} {params.extra} &> {log}"
 
 
 rule gfa_to_fa:
@@ -119,13 +143,13 @@ rule gfa_to_fa:
     resources:
         mem_mb=8 * 1024,
         runtime=60 * 4,
+    log:
+        "results/logs/gfa_to_fa/{sm}.{asm_type}.{hap}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        gfatools gfa2fa {input.gfa} | bgzip -@ {threads} > {output.fa}
-        samtools faidx {output.fa}
-        """
+        "(gfatools gfa2fa {input.gfa} | bgzip -@ {threads} > {output.fa} && "
+        "samtools faidx {output.fa}) &> {log}"
 
 
 # Quick alignment with minimap2 for orientation detection (no base-level alignment)
@@ -140,13 +164,13 @@ rule quick_align:
     resources:
         mem_mb=16 * 1024,
         runtime=60,
+    log:
+        "results/logs/quick_align/{sm}.{ref}.{asm_type}.{hap}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        minimap2 -s 25000 -x asm20 -t {threads} --secondary=no \
-            {input.ref} {input.fa} > {output.paf}
-        """
+        "minimap2 -s 25000 -x asm20 -t {threads} --secondary=no "
+        "{input.ref} {input.fa} > {output.paf} 2> {log}"
 
 
 rule analyze_orientation:
@@ -159,12 +183,13 @@ rule analyze_orientation:
     resources:
         mem_mb=4 * 1024,
         runtime=60,
+    log:
+        "results/logs/analyze_orientation/{sm}.{ref}.{asm_type}.{hap}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        python {workflow.basedir}/scripts/orient_contigs.py {input.paf} {output.tsv}
-        """
+        "python {workflow.basedir}/scripts/orient_contigs.py "
+        "{input.paf} {output.tsv} &> {log}"
 
 
 rule orient_assembly:
@@ -179,6 +204,8 @@ rule orient_assembly:
     resources:
         mem_mb=8 * 1024,
         runtime=60 * 2,
+    log:
+        "results/logs/orient_assembly/{sm}.{asm_type}.{hap}.log",
     params:
         hap_num=get_haplotype_number,
         phasing=get_phasing_description,
@@ -188,19 +215,17 @@ rule orient_assembly:
     conda:
         "../envs/env.yml"
     shell:
-        """
-        python {workflow.basedir}/scripts/apply_orientation.py \
-            {input.fa} {input.orientation} /dev/stdout \
-            --sample {wildcards.sm} \
-            --haplotype {params.hap_num} \
-            --assembler hifiasm \
-            --version "{params.hifiasm_version}" \
-            --phasing {params.phasing} \
-            --ultralong {params.ultralong} \
-            --orient-ref {params.orient_ref} \
-            | bgzip -@ {threads} > {output.fa}
-        samtools faidx {output.fa}
-        """
+        "(python {workflow.basedir}/scripts/apply_orientation.py "
+        "    {input.fa} {input.orientation} /dev/stdout "
+        "    --sample {wildcards.sm} "
+        "    --haplotype {params.hap_num} "
+        "    --assembler hifiasm "
+        '    --version "{params.hifiasm_version}" '
+        "    --phasing {params.phasing} "
+        "    --ultralong {params.ultralong} "
+        "    --orient-ref {params.orient_ref} "
+        "    | bgzip -@ {threads} > {output.fa} && "
+        "samtools faidx {output.fa}) &> {log}"
 
 
 rule merge_haplotype_fasta:
@@ -219,10 +244,10 @@ rule merge_haplotype_fasta:
     resources:
         mem_mb=8 * 1024,
         runtime=60,
+    log:
+        "results/logs/merge_haplotype_fasta/{sm}.{asm_type}.log",
     conda:
         "../envs/env.yml"
     shell:
-        """
-        cat {input.hap1} {input.hap2} > {output.fa}
-        samtools faidx {output.fa}
-        """
+        "(cat {input.hap1} {input.hap2} > {output.fa} && "
+        "samtools faidx {output.fa}) &> {log}"

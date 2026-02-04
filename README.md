@@ -104,21 +104,18 @@ The workflow produces oriented assemblies and per-reference alignments:
 results/
 ├── assemblies/
 │   ├── {sample}.{mode}.hap1.fa.gz      # Haplotype 1 assembly (oriented to primary ref)
-│   ├── {sample}.{mode}.hap1.fa.gz.fai  # FASTA index
 │   ├── {sample}.{mode}.hap2.fa.gz      # Haplotype 2 assembly
-│   ├── {sample}.{mode}.hap2.fa.gz.fai
 │   └── {sample}.{mode}.dip.fa.gz       # Combined diploid assembly
 ├── alignments/
 │   ├── {reference}/
-│   │   ├── {sample}.{mode}.hap1.bam        # Haplotype 1 aligned to reference
-│   │   ├── {sample}.{mode}.hap1.bam.csi    # BAM index
-│   │   ├── {sample}.{mode}.hap1.paf        # PAF format alignment
+│   │   ├── {sample}.{mode}.hap1.bam    # Haplotype 1 aligned to reference
 │   │   ├── {sample}.{mode}.hap2.bam
-│   │   ├── {sample}.{mode}.hap2.paf
-│   │   └── {sample}.{mode}.dip.bam         # Combined diploid alignment
+│   │   └── {sample}.{mode}.dip.bam     # Combined diploid alignment
+│   │   ├── {sample}.{mode}.hap1.paf.gz # PAF format alignment (compressed)
+│   │   ├── {sample}.{mode}.hap2.paf.gz
 │   └── {reference2}/
 │       └── ...
-└── temp/                                   # Intermediate files (auto-deleted)
+└── temp/                               # Intermediate files (auto-deleted)
 ```
 
 Assemblies are oriented once to the primary reference (T2T-CHM13v2.0 by default), while alignments are produced for all configured references.
@@ -155,11 +152,13 @@ Header metadata fields:
 Assemblies are oriented to the **primary reference** (first in config, T2T-CHM13v2.0 by default). Contigs are flipped to match reference strand orientation and annotated with chromosome assignments.
 
 The orientation pipeline:
+
 1. **Fast alignment with minimap2** - Quick whole-genome alignment to determine contig orientation
 2. **Flip contigs** - Reverse complement contigs where majority of aligned bases are on reverse strand
 3. **Full alignment with minimap2** - Detailed alignment to all configured references
 
 Reference-oriented assemblies have additional header annotations:
+
 - `orient_ref` - Reference used for orientation (e.g., `T2T-CHM13v2.0`)
 - `chrom` - Primary chromosome the contig aligns to (e.g., `chr1`)
 - `flipped` - Whether the contig was reverse complemented (`yes` or `no`)
@@ -176,8 +175,8 @@ To configure references, add them to your config file:
 ```yaml
 manifest: samples.tbl
 references:
-  T2T-CHM13v2.0: /path/to/chm13v2.fa   # Primary (used for orientation)
-  GRCh38: /path/to/grch38.fa           # Alignments only
+  T2T-CHM13v2.0: /path/to/chm13v2.fa # Primary (used for orientation)
+  GRCh38: /path/to/grch38.fa # Alignments only
 ```
 
 When no reference is provided, default references (T2T-CHM13v2.0 and GRCh38) are downloaded automatically.

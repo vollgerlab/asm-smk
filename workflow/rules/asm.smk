@@ -201,3 +201,28 @@ rule orient_assembly:
             | bgzip -@ {threads} > {output.fa}
         samtools faidx {output.fa}
         """
+
+
+rule merge_haplotype_fasta:
+    """Merge hap1 and hap2 FASTA files into a single diploid assembly."""
+    input:
+        hap1=lambda wc: rules.orient_assembly.output.fa.format(
+            sm=wc.sm, asm_type=wc.asm_type, hap="hap1"
+        ),
+        hap2=lambda wc: rules.orient_assembly.output.fa.format(
+            sm=wc.sm, asm_type=wc.asm_type, hap="hap2"
+        ),
+    output:
+        fa="results/assemblies/{sm}.{asm_type}.dip.fa.gz",
+        fai="results/assemblies/{sm}.{asm_type}.dip.fa.gz.fai",
+    threads: 4
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60,
+    conda:
+        "../envs/env.yml"
+    shell:
+        """
+        cat {input.hap1} {input.hap2} > {output.fa}
+        samtools faidx {output.fa}
+        """

@@ -29,11 +29,11 @@ rule align:
 
 
 rule bam_to_paf:
-    """Convert BAM alignment to PAF format."""
+    """Convert BAM alignment to compressed PAF format."""
     input:
         bam=rules.align.output.bam,
     output:
-        paf="results/alignments/{ref}/{sm}.{asm_type}.{hap}.paf",
+        paf="results/alignments/{ref}/{sm}.{asm_type}.{hap}.paf.gz",
     threads: 4
     resources:
         mem_mb=16 * 1024,
@@ -44,28 +44,7 @@ rule bam_to_paf:
         """
         samtools view -h -@ {threads} {input.bam} \
             | paftools.js sam2paf - \
-            > {output.paf}
-        """
-
-
-rule merge_haplotype_fasta:
-    """Merge hap1 and hap2 FASTA files into a single diploid assembly."""
-    input:
-        hap1=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap="hap1"),
-        hap2=lambda wc: rules.orient_assembly.output.fa.format(sm=wc.sm, asm_type=wc.asm_type, hap="hap2"),
-    output:
-        fa="results/assemblies/{sm}.{asm_type}.dip.fa.gz",
-        fai="results/assemblies/{sm}.{asm_type}.dip.fa.gz.fai",
-    threads: 4
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    conda:
-        "../envs/env.yml"
-    shell:
-        """
-        cat {input.hap1} {input.hap2} > {output.fa}
-        samtools faidx {output.fa}
+            | bgzip -@ {threads} > {output.paf}
         """
 
 

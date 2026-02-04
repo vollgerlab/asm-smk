@@ -1,42 +1,16 @@
 # asm-smk
 
-A production-ready pipeline for generating high-quality, phased diploid genome assemblies from PacBio HiFi reads. Supports trio-based and Hi-C phasing, optional ultra-long ONT reads, and produces reference-oriented assemblies with standardized headers ready for pangenome analysis.
+A production-ready pipeline for generating high-quality, phased diploid genome assemblies from PacBio HiFi reads. Supports trio-based and Hi-C phasing, optional ultra-long ONT reads, and produces reference-oriented assemblies with standardized headers ready for pangenome analysis. Includes assembly-based variant calling (SNPs, indels, and structural variants) with phased VCF output.
 
-## Install
-
-Please start by installing [pixi](https://pixi.sh/latest/) which handles the environment of this Snakemake workflow.
-
-You can then install the `pixi` environment by cloning this repository and running:
+## Quick Start
 
 ```bash
+# Install pixi (https://pixi.sh) then:
+git clone https://github.com/mrvollger/asm-smk && cd asm-smk
 pixi install
+pixi run test                                    # verify installation
+pixi run snakemake --configfile your_config.yaml # run pipeline
 ```
-
-## Test case
-
-Before running the workflow please run the test case to make sure everything is working as expected.
-
-```bash
-pixi run test
-```
-
-## Usage
-
-`pixi` handles the execution of the Snakemake workflows:
-
-```bash
-pixi run snakemake --configfile ...
-```
-
-And if you want to run this Snakemake from another directory you can do so with:
-
-```bash
-pixi run --manifest-path /path/to/snakemake/pixi.toml snakemake ...
-```
-
-where you update `/path/to/snakemake/pixi.toml` to the path of the `pixi.toml` you cloned.
-
-And in place of `...` use all the normal Snakemake arguments for your workflow.
 
 ## Configuration
 
@@ -98,7 +72,7 @@ multi   /f1.fq.gz,/f2.fq.gz    /r1a.fq.gz,/r1b.fq.gz   /r2a.fq.gz,/r2b.fq.gz   /
 
 ## Output
 
-The workflow produces oriented assemblies and per-reference alignments:
+The workflow produces oriented assemblies, alignments, and phased variant calls:
 
 ```
 results/
@@ -110,17 +84,41 @@ results/
 │   ├── {reference}/
 │   │   ├── {sample}.{mode}.hap1.bam    # Haplotype 1 aligned to reference
 │   │   ├── {sample}.{mode}.hap2.bam
-│   │   └── {sample}.{mode}.dip.bam     # Combined diploid alignment
+│   │   ├── {sample}.{mode}.dip.bam     # Combined diploid alignment
 │   │   ├── {sample}.{mode}.hap1.paf.gz # PAF format alignment (compressed)
 │   │   ├── {sample}.{mode}.hap2.paf.gz
+│   │   └── {sample}.{mode}.vcf.gz      # Phased variants (SNPs, indels, SVs)
 │   └── {reference2}/
 │       └── ...
 └── temp/                               # Intermediate files (auto-deleted)
 ```
 
-Assemblies are oriented once to the primary reference (T2T-CHM13v2.0 by default), while alignments are produced for all configured references.
+Assemblies are oriented once to the primary reference (T2T-CHM13v2.0 by default), while alignments and variants are produced for all configured references.
 
 Where `{mode}` is one of: `bp` (unphased), `dip` (trio-phased), or `hic` (Hi-C phased).
+
+### Variant Calling
+
+The workflow calls variants from assembly-to-reference alignments using two complementary tools:
+
+- **paftools.js call** - SNPs and small indels from minimap2 alignments
+- **SVIM-asm** - Structural variants (insertions, deletions, duplications, inversions)
+
+Variants from both tools are merged into a single phased VCF per sample. Genotypes use phased notation (e.g., `1|0` for hap1-only, `0|1` for hap2-only, `1|1` for homozygous).
+
+To disable variant calling:
+
+```yaml
+manifest: samples.tbl
+call_variants: false
+```
+
+To adjust the minimum SV size (default: 50bp):
+
+```yaml
+manifest: samples.tbl
+min_sv_size: 30
+```
 
 ### PanSN-spec Headers
 
@@ -181,8 +179,16 @@ references:
 
 When no reference is provided, default references (T2T-CHM13v2.0 and GRCh38) are downloaded automatically.
 
-### Submitting to the Hyak HPC via Slurm
+## Advanced Usage
+
+### Running from Another Directory
 
 ```bash
-pixi run snakemake --configfile /path/to/your/config.yaml --profile profiles/slurm-executor
+pixi run --manifest-path /path/to/asm-smk/pixi.toml snakemake --configfile /path/to/config.yaml
+```
+
+### Slurm Cluster Execution
+
+```bash
+pixi run snakemake --configfile config.yaml --profile profiles/slurm-executor
 ```

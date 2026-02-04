@@ -55,6 +55,7 @@ wildcard_constraints:
 # include the rules
 include: "rules/asm.smk"
 include: "rules/align.smk"
+include: "rules/variants.smk"
 
 
 # Helper function to check if manifest value contains valid data
@@ -133,7 +134,7 @@ for row in tbl.itertuples():
         sm=sm,
         asm_type=asm_type,
     )
-    # Add PAF alignments for ALL references
+    # Add PAF alignments and variants for ALL references
     for ref in REFS.keys():
         results += expand(
             rules.bam_to_paf.output.paf,
@@ -149,6 +150,14 @@ for row in tbl.itertuples():
             asm_type=asm_type,
             ref=ref,
         )
+        # Add phased variant VCF (if enabled)
+        if config.get("call_variants", True):
+            results += expand(
+                rules.merge_variants.output.vcf,
+                sm=sm,
+                asm_type=asm_type,
+                ref=ref,
+            )
 
 
 rule all:

@@ -64,7 +64,13 @@ def determine_orientation(alignments):
         # Flip if majority of bases are on reverse strand
         should_flip = rev_bases > fwd_bases
 
-        orientations[contig] = (primary_chrom, should_flip, total_bases, fwd_bases, rev_bases)
+        orientations[contig] = (
+            primary_chrom,
+            should_flip,
+            total_bases,
+            fwd_bases,
+            rev_bases,
+        )
 
     return orientations
 

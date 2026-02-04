@@ -74,15 +74,27 @@ def main():
         description="Apply orientation to contigs and add metadata to headers."
     )
     parser.add_argument("input_fa", help="Input FASTA file (can be gzipped)")
-    parser.add_argument("orientation_tsv", help="Orientation TSV from analyze_orientation")
-    parser.add_argument("output_fa", help="Output FASTA file (use /dev/stdout for pipe)")
+    parser.add_argument(
+        "orientation_tsv", help="Orientation TSV from analyze_orientation"
+    )
+    parser.add_argument(
+        "output_fa", help="Output FASTA file (use /dev/stdout for pipe)"
+    )
     parser.add_argument("--sample", required=True, help="Sample name for PanSN header")
     parser.add_argument("--haplotype", required=True, help="Haplotype number (1 or 2)")
-    parser.add_argument("--assembler", default=None, help="Assembler name (e.g., hifiasm)")
+    parser.add_argument(
+        "--assembler", default=None, help="Assembler name (e.g., hifiasm)"
+    )
     parser.add_argument("--version", default=None, help="Assembler version")
-    parser.add_argument("--phasing", default=None, help="Phasing method (trio, hic, none)")
-    parser.add_argument("--ultralong", default=None, help="Whether ultralong reads used (yes/no)")
-    parser.add_argument("--orient-ref", default=None, help="Reference used for orientation")
+    parser.add_argument(
+        "--phasing", default=None, help="Phasing method (trio, hic, none)"
+    )
+    parser.add_argument(
+        "--ultralong", default=None, help="Whether ultralong reads used (yes/no)"
+    )
+    parser.add_argument(
+        "--orient-ref", default=None, help="Reference used for orientation"
+    )
 
     args = parser.parse_args()
 

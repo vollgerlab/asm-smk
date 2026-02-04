@@ -136,9 +136,7 @@ def main():
         output = open(args.output, "w")
 
     try:
-        merge_haplotype_vcfs(
-            args.hap1, args.hap2, args.sample, args.ref, output
-        )
+        merge_haplotype_vcfs(args.hap1, args.hap2, args.sample, args.ref, output)
     finally:
         if output != sys.stdout:
             output.close()

@@ -138,5 +138,6 @@ rule merge_variants:
         "(bcftools concat -a -D {input.small} {input.svs} "
         "    | bcftools sort -m 4G "
         "    | bcftools norm -f {input.ref} -c s -m -any "
+        "    | bcftools sort -m 4G "
         "    | bgzip -@ {threads} > {output.vcf} && "
         "tabix -p vcf {output.vcf}) &> {log}"

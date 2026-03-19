@@ -137,6 +137,7 @@ rule merge_variants:
     shell:
         "(bcftools concat -a -D {input.small} {input.svs} "
         "    | bcftools sort -m 4G "
+        "    | bcftools annotate -h <(echo '##INFO=<ID=SVLEN,Number=A,Type=Integer,Description=\"Length of structural variant\">') "
         "    | bcftools norm -f {input.ref} -c s -m -any "
         "    | bcftools sort -m 4G "
         "    | bgzip -@ {threads} > {output.vcf} && "

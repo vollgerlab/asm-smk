@@ -5,7 +5,7 @@ rule call_small_variants:
     """Call SNPs and small indels from assembly alignment using paftools.js."""
     input:
         bam=rules.align.output.bam,
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
         vcf=temp("temp/{sm}/{ref}/{sm}.{asm_type}.{hap}.small.vcf.gz"),
         tbi=temp("temp/{sm}/{ref}/{sm}.{asm_type}.{hap}.small.vcf.gz.tbi"),
@@ -29,7 +29,7 @@ rule phase_small_variants:
     input:
         hap1=lambda wc: f"temp/{wc.sm}/{wc.ref}/{wc.sm}.{wc.asm_type}.hap1.small.vcf.gz",
         hap2=lambda wc: f"temp/{wc.sm}/{wc.ref}/{wc.sm}.{wc.asm_type}.hap2.small.vcf.gz",
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
         vcf=temp("temp/{sm}/{ref}/{sm}.{asm_type}.small.phased.vcf.gz"),
         tbi=temp("temp/{sm}/{ref}/{sm}.{asm_type}.small.phased.vcf.gz.tbi"),
@@ -90,8 +90,8 @@ rule call_svs:
         hap2_idx=lambda wc: rules.align.output.index.format(
             ref=wc.ref, sm=wc.sm, asm_type=wc.asm_type, hap="hap2"
         ),
-        ref=rules.prepare_uncompressed_ref.output.fa,
-        ref_idx=rules.prepare_uncompressed_ref.output.fai,
+        ref=ancient(rules.prepare_uncompressed_ref.output.fa),
+        ref_idx=ancient(rules.prepare_uncompressed_ref.output.fai),
     output:
         vcf=temp("temp/{sm}/{ref}/{sm}.{asm_type}.svim-asm.vcf.gz"),
         tbi=temp("temp/{sm}/{ref}/{sm}.{asm_type}.svim-asm.vcf.gz.tbi"),
@@ -122,7 +122,7 @@ rule merge_variants:
         small_tbi=lambda wc: f"temp/{wc.sm}/{wc.ref}/{wc.sm}.{wc.asm_type}.small.filtered.vcf.gz.tbi",
         svs=lambda wc: f"temp/{wc.sm}/{wc.ref}/{wc.sm}.{wc.asm_type}.svim-asm.vcf.gz",
         svs_tbi=lambda wc: f"temp/{wc.sm}/{wc.ref}/{wc.sm}.{wc.asm_type}.svim-asm.vcf.gz.tbi",
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
         vcf="results/alignments/{ref}/{sm}.{asm_type}.vcf.gz",
         tbi="results/alignments/{ref}/{sm}.{asm_type}.vcf.gz.tbi",

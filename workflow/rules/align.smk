@@ -5,7 +5,7 @@ rule align:
         fa=lambda wc: rules.orient_assembly.output.fa.format(
             sm=wc.sm, asm_type=wc.asm_type, hap=wc.hap
         ),
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
         bam="results/alignments/{ref}/{sm}.{asm_type}.{hap}.bam",
         index="results/alignments/{ref}/{sm}.{asm_type}.{hap}.bam.csi",

@@ -26,10 +26,10 @@ rule download_reference:
 rule prepare_uncompressed_ref:
     """Prepare uncompressed reference for tools that cannot read gzipped FASTA (e.g., svim-asm)."""
     input:
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
-        fa=temp("temp/references/{ref}.fa"),
-        fai=temp("temp/references/{ref}.fa.fai"),
+        fa="results/references/{ref}.fa",
+        fai="results/references/{ref}.fa.fai",
     threads: 4
     resources:
         mem_mb=8 * 1024,
@@ -158,7 +158,7 @@ rule quick_align:
     """Fast whole-genome alignment using minimap2 for orientation detection."""
     input:
         fa=rules.gfa_to_fa.output.fa,
-        ref=get_ref,
+        ref=ancient(get_ref),
     output:
         paf=temp("temp/{sm}/{ref}/{sm}.{asm_type}.{hap}.orient.paf"),
     threads: 8

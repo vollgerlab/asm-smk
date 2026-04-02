@@ -139,6 +139,7 @@ rule gfa_to_fa:
     output:
         fa=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz"),
         fai=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz.fai"),
+        gzi=temp("temp/{sm}/{sm}.{asm_type}.{hap}.raw.fa.gz.gzi"),
     threads: 4
     resources:
         mem_mb=8 * 1024,
